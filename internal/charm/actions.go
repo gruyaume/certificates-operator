@@ -3,7 +3,7 @@ package charm
 import (
 	"fmt"
 
-	"github.com/gruyaume/go-operator/commands"
+	"github.com/gruyaume/goops/commands"
 )
 
 func HandleGetCACertificateAction(hookCommand *commands.HookCommand) error {

@@ -2,7 +2,7 @@
 
 Manage X.509 certificates in the Juju ecosystem.
 
-This charm serves as a proof-of-concept for developing charms in Go using the [go-operator](https://github.com/gruyaume/go-operator) library.
+This charm serves as a proof-of-concept for developing charms in Go using the [goops](https://github.com/gruyaume/goops) library.
 
 ## Usage
 

@@ -4,8 +4,8 @@ import (
 	"os"
 
 	"github.com/gruyaume/certificates-operator/internal/charm"
-	"github.com/gruyaume/go-operator/commands"
-	"github.com/gruyaume/go-operator/environment"
+	"github.com/gruyaume/goops/commands"
+	"github.com/gruyaume/goops/environment"
 )
 
 func main() {
