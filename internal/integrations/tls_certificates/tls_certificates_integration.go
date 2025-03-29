@@ -71,22 +71,22 @@ type ProviderCertificate struct {
 	Revoked                   bool
 }
 
-func GetOutstandingCertificateRequests(commandRunner *commands.DefaultRunner, relationName string) ([]RequirerCertificateRequest, error) {
+func GetOutstandingCertificateRequests(hookCommand *commands.HookCommand, relationName string) ([]RequirerCertificateRequest, error) {
 	if relationName == "" {
 		return nil, fmt.Errorf("relation name is empty")
 	}
-	relationIDs, err := commands.RelationIDs(commandRunner, relationName)
+	relationIDs, err := commands.RelationIDs(hookCommand, relationName)
 	if err != nil {
 		return nil, fmt.Errorf("could not get relation IDs: %w", err)
 	}
 	requirerCertificateRequests := make([]RequirerCertificateRequest, 0)
 	for _, relationID := range relationIDs {
-		relationUnits, err := commands.RelationList(commandRunner, relationID)
+		relationUnits, err := commands.RelationList(hookCommand, relationID)
 		if err != nil {
 			return nil, fmt.Errorf("could not list relation data: %w", err)
 		}
 		for _, unitID := range relationUnits {
-			relationData, err := commands.RelationGet(commandRunner, relationID, unitID, false)
+			relationData, err := commands.RelationGet(hookCommand, relationID, unitID, false)
 			if err != nil {
 				return nil, fmt.Errorf("could not get relation data: %w", err)
 			}
@@ -117,7 +117,7 @@ func GetOutstandingCertificateRequests(commandRunner *commands.DefaultRunner, re
 	return requirerCertificateRequests, nil
 }
 
-func SetRelationCertificate(commandRunner *commands.DefaultRunner, relationID string, providerCertificate ProviderCertificate) error {
+func SetRelationCertificate(hookCommand *commands.HookCommand, relationID string, providerCertificate ProviderCertificate) error {
 	appData := []CertificateSigningRequestProviderAppRelationData{
 		{
 			CA:                        providerCertificate.CA.Raw,
@@ -136,7 +136,7 @@ func SetRelationCertificate(commandRunner *commands.DefaultRunner, relationID st
 	relationData := map[string]string{
 		"certificates": string(appDataJSON),
 	}
-	err = commands.RelationSet(commandRunner, relationID, true, relationData)
+	err = commands.RelationSet(hookCommand, relationID, true, relationData)
 	if err != nil {
 		return fmt.Errorf("could not set relation data: %w", err)
 	}
