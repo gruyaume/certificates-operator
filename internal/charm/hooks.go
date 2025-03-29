@@ -13,8 +13,8 @@ const (
 	TLSCertificatesIntegration = "certificates"
 )
 
-func isConfigValid(commandRunner *commands.DefaultRunner) (bool, error) {
-	caCommonNameConfig, err := commands.ConfigGet(commandRunner, "ca-common-name")
+func isConfigValid(hookCommand *commands.HookCommand) (bool, error) {
+	caCommonNameConfig, err := commands.ConfigGet(hookCommand, "ca-common-name")
 	if err != nil {
 		return false, fmt.Errorf("could not get config: %w", err)
 	}
@@ -24,13 +24,13 @@ func isConfigValid(commandRunner *commands.DefaultRunner) (bool, error) {
 	return true, nil
 }
 
-func generateAndStoreRootCertificate(commandRunner *commands.DefaultRunner, logger *commands.Logger) error {
-	caCommonName, err := commands.ConfigGet(commandRunner, "ca-common-name")
+func generateAndStoreRootCertificate(hookCommand *commands.HookCommand, logger *commands.Logger) error {
+	caCommonName, err := commands.ConfigGet(hookCommand, "ca-common-name")
 	if err != nil {
 		return fmt.Errorf("could not get config: %w", err)
 	}
 
-	_, err = commands.SecretGet(commandRunner, "", CaCertificateSecretLabel, false, true)
+	_, err = commands.SecretGet(hookCommand, "", CaCertificateSecretLabel, false, true)
 	if err != nil {
 		logger.Info("could not get secret:", err.Error())
 		caCertPEM, caKeyPEM, err := GenerateRootCertificate(caCommonName)
@@ -42,7 +42,7 @@ func generateAndStoreRootCertificate(commandRunner *commands.DefaultRunner, logg
 			"private-key":    caKeyPEM,
 			"ca-certificate": caCertPEM,
 		}
-		_, err = commands.SecretAdd(commandRunner, secretContent, "", CaCertificateSecretLabel)
+		_, err = commands.SecretAdd(hookCommand, secretContent, "", CaCertificateSecretLabel)
 		if err != nil {
 			return fmt.Errorf("could not add secret: %w", err)
 		}
@@ -53,14 +53,14 @@ func generateAndStoreRootCertificate(commandRunner *commands.DefaultRunner, logg
 	return nil
 }
 
-func processOutstandingCertificateRequests(commandRunner *commands.DefaultRunner, logger *commands.Logger) error {
-	outstandingCertificateRequests, err := tls_certificates.GetOutstandingCertificateRequests(commandRunner, TLSCertificatesIntegration)
+func processOutstandingCertificateRequests(hookCommand *commands.HookCommand, logger *commands.Logger) error {
+	outstandingCertificateRequests, err := tls_certificates.GetOutstandingCertificateRequests(hookCommand, TLSCertificatesIntegration)
 	if err != nil {
 		return fmt.Errorf("could not get outstanding certificate requests: %w", err)
 	}
 	for _, request := range outstandingCertificateRequests {
 		logger.Info("Received a certificate signing request from:", request.RelationID, "with common name:", request.CertificateSigningRequest.CommonName)
-		caCertificateSecret, err := commands.SecretGet(commandRunner, "", CaCertificateSecretLabel, false, true)
+		caCertificateSecret, err := commands.SecretGet(hookCommand, "", CaCertificateSecretLabel, false, true)
 		if err != nil {
 			return fmt.Errorf("could not get CA certificate secret: %w", err)
 		}
@@ -86,7 +86,7 @@ func processOutstandingCertificateRequests(commandRunner *commands.DefaultRunner
 			},
 			Revoked: false,
 		}
-		err = tls_certificates.SetRelationCertificate(commandRunner, request.RelationID, providerCertificatte)
+		err = tls_certificates.SetRelationCertificate(hookCommand, request.RelationID, providerCertificatte)
 		if err != nil {
 			logger.Warning("Could not set relation certificate:", err.Error())
 			continue
@@ -96,15 +96,15 @@ func processOutstandingCertificateRequests(commandRunner *commands.DefaultRunner
 	return nil
 }
 
-func HandleDefaultHook(commandRunner *commands.DefaultRunner, logger *commands.Logger) error {
-	isLeader, err := commands.IsLeader(commandRunner)
+func HandleDefaultHook(hookCommand *commands.HookCommand, logger *commands.Logger) error {
+	isLeader, err := commands.IsLeader(hookCommand)
 	if err != nil {
 		return fmt.Errorf("could not check if unit is leader: %w", err)
 	}
 	if !isLeader {
 		return fmt.Errorf("unit is not leader")
 	}
-	valid, err := isConfigValid(commandRunner)
+	valid, err := isConfigValid(hookCommand)
 	if err != nil {
 		return fmt.Errorf("could not check config: %w", err)
 	}
@@ -112,18 +112,18 @@ func HandleDefaultHook(commandRunner *commands.DefaultRunner, logger *commands.L
 		return fmt.Errorf("config is not valid")
 	}
 
-	err = commands.StatusSet(commandRunner, commands.StatusActive)
+	err = commands.StatusSet(hookCommand, commands.StatusActive)
 	if err != nil {
 		logger.Error("Could not set status:", err.Error())
 		os.Exit(0)
 	}
 	logger.Info("Status set to active")
 
-	err = generateAndStoreRootCertificate(commandRunner, logger)
+	err = generateAndStoreRootCertificate(hookCommand, logger)
 	if err != nil {
 		return fmt.Errorf("could not generate CA certificate: %w", err)
 	}
-	err = processOutstandingCertificateRequests(commandRunner, logger)
+	err = processOutstandingCertificateRequests(hookCommand, logger)
 	if err != nil {
 		return fmt.Errorf("could not process outstanding certificate requests: %w", err)
 	}

@@ -9,15 +9,15 @@ import (
 )
 
 func main() {
-	commandRunner := &commands.DefaultRunner{}
-	environmentGetter := &environment.DefaultEnvironment{}
-	logger := commands.NewLogger(commandRunner)
-	actionName := environment.JujuActionName(environmentGetter)
+	hookCommand := &commands.HookCommand{}
+	execEnv := &environment.ExecutionEnvironment{}
+	logger := commands.NewLogger(hookCommand)
+	actionName := environment.JujuActionName(execEnv)
 	if actionName != "" {
 		logger.Info("Action name:", actionName)
 		switch actionName {
 		case "get-ca-certificate":
-			err := charm.HandleGetCACertificateAction(commandRunner)
+			err := charm.HandleGetCACertificateAction(hookCommand)
 			if err != nil {
 				logger.Error("Error handling get-ca-certificate action:", err.Error())
 				os.Exit(0)
@@ -30,10 +30,10 @@ func main() {
 		}
 	}
 
-	hookName := environment.JujuHookName(environmentGetter)
+	hookName := environment.JujuHookName(execEnv)
 	if hookName != "" {
 		logger.Info("Hook name:", hookName)
-		err := charm.HandleDefaultHook(commandRunner, logger)
+		err := charm.HandleDefaultHook(hookCommand, logger)
 		if err != nil {
 			logger.Error("Error handling default hook:", err.Error())
 			os.Exit(0)
