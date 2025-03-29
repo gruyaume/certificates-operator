@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/gruyaume/certificates-operator/internal/integrations/tls_certificates"
-	"github.com/gruyaume/go-operator/commands"
+	"github.com/gruyaume/goops/commands"
 )
 
 const (

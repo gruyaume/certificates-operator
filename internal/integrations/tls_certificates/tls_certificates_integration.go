@@ -6,7 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"github.com/gruyaume/go-operator/commands"
+	"github.com/gruyaume/goops/commands"
 )
 
 type CertificateSigningRequestRequirerRelationData struct {
