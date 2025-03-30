@@ -6,7 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"github.com/gruyaume/goops/commands"
+	"github.com/gruyaume/goops"
 )
 
 type CertificateSigningRequestRequirerRelationData struct {
@@ -71,22 +71,22 @@ type ProviderCertificate struct {
 	Revoked                   bool
 }
 
-func GetOutstandingCertificateRequests(hookCommand *commands.HookCommand, relationName string) ([]RequirerCertificateRequest, error) {
+func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationName string) ([]RequirerCertificateRequest, error) {
 	if relationName == "" {
 		return nil, fmt.Errorf("relation name is empty")
 	}
-	relationIDs, err := commands.RelationIDs(hookCommand, relationName)
+	relationIDs, err := hookContext.Commands.RelationIDs(relationName)
 	if err != nil {
 		return nil, fmt.Errorf("could not get relation IDs: %w", err)
 	}
 	requirerCertificateRequests := make([]RequirerCertificateRequest, 0)
 	for _, relationID := range relationIDs {
-		relationUnits, err := commands.RelationList(hookCommand, relationID)
+		relationUnits, err := hookContext.Commands.RelationList(relationID)
 		if err != nil {
 			return nil, fmt.Errorf("could not list relation data: %w", err)
 		}
 		for _, unitID := range relationUnits {
-			relationData, err := commands.RelationGet(hookCommand, relationID, unitID, false)
+			relationData, err := hookContext.Commands.RelationGet(relationID, unitID, false)
 			if err != nil {
 				return nil, fmt.Errorf("could not get relation data: %w", err)
 			}
@@ -117,7 +117,7 @@ func GetOutstandingCertificateRequests(hookCommand *commands.HookCommand, relati
 	return requirerCertificateRequests, nil
 }
 
-func SetRelationCertificate(hookCommand *commands.HookCommand, relationID string, providerCertificate ProviderCertificate) error {
+func SetRelationCertificate(hookContext *goops.HookContext, relationID string, providerCertificate ProviderCertificate) error {
 	appData := []CertificateSigningRequestProviderAppRelationData{
 		{
 			CA:                        providerCertificate.CA.Raw,
@@ -136,7 +136,7 @@ func SetRelationCertificate(hookCommand *commands.HookCommand, relationID string
 	relationData := map[string]string{
 		"certificates": string(appDataJSON),
 	}
-	err = commands.RelationSet(hookCommand, relationID, true, relationData)
+	err = hookContext.Commands.RelationSet(relationID, true, relationData)
 	if err != nil {
 		return fmt.Errorf("could not set relation data: %w", err)
 	}

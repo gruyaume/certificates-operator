@@ -2,9 +2,9 @@ package charm
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/gruyaume/certificates-operator/internal/integrations/tls_certificates"
+	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
 )
 
@@ -13,8 +13,8 @@ const (
 	TLSCertificatesIntegration = "certificates"
 )
 
-func isConfigValid(hookCommand *commands.HookCommand) (bool, error) {
-	caCommonNameConfig, err := commands.ConfigGet(hookCommand, "ca-common-name")
+func isConfigValid(hookContext *goops.HookContext) (bool, error) {
+	caCommonNameConfig, err := hookContext.Commands.ConfigGet("ca-common-name")
 	if err != nil {
 		return false, fmt.Errorf("could not get config: %w", err)
 	}
@@ -24,43 +24,43 @@ func isConfigValid(hookCommand *commands.HookCommand) (bool, error) {
 	return true, nil
 }
 
-func generateAndStoreRootCertificate(hookCommand *commands.HookCommand, logger *commands.Logger) error {
-	caCommonName, err := commands.ConfigGet(hookCommand, "ca-common-name")
+func generateAndStoreRootCertificate(hookContext *goops.HookContext) error {
+	caCommonName, err := hookContext.Commands.ConfigGetString("ca-common-name")
 	if err != nil {
 		return fmt.Errorf("could not get config: %w", err)
 	}
 
-	_, err = commands.SecretGet(hookCommand, "", CaCertificateSecretLabel, false, true)
+	_, err = hookContext.Commands.SecretGet("", CaCertificateSecretLabel, false, true)
 	if err != nil {
-		logger.Info("could not get secret:", err.Error())
+		hookContext.Commands.JujuLog(commands.Info, "could not get secret:", err.Error())
 		caCertPEM, caKeyPEM, err := GenerateRootCertificate(caCommonName)
 		if err != nil {
 			return fmt.Errorf("could not generate root certificate: %w", err)
 		}
-		logger.Info("Generated new root certificate")
+		hookContext.Commands.JujuLog(commands.Info, "Generated new root certificate")
 		secretContent := map[string]string{
 			"private-key":    caKeyPEM,
 			"ca-certificate": caCertPEM,
 		}
-		_, err = commands.SecretAdd(hookCommand, secretContent, "", CaCertificateSecretLabel)
+		_, err = hookContext.Commands.SecretAdd(secretContent, "", CaCertificateSecretLabel)
 		if err != nil {
 			return fmt.Errorf("could not add secret: %w", err)
 		}
-		logger.Info("Created new secret")
+		hookContext.Commands.JujuLog(commands.Info, "Created new secret")
 		return nil
 	}
-	logger.Info("Secret found")
+	hookContext.Commands.JujuLog(commands.Info, "Secret found")
 	return nil
 }
 
-func processOutstandingCertificateRequests(hookCommand *commands.HookCommand, logger *commands.Logger) error {
-	outstandingCertificateRequests, err := tls_certificates.GetOutstandingCertificateRequests(hookCommand, TLSCertificatesIntegration)
+func processOutstandingCertificateRequests(hookContext *goops.HookContext) error {
+	outstandingCertificateRequests, err := tls_certificates.GetOutstandingCertificateRequests(hookContext, TLSCertificatesIntegration)
 	if err != nil {
 		return fmt.Errorf("could not get outstanding certificate requests: %w", err)
 	}
 	for _, request := range outstandingCertificateRequests {
-		logger.Info("Received a certificate signing request from:", request.RelationID, "with common name:", request.CertificateSigningRequest.CommonName)
-		caCertificateSecret, err := commands.SecretGet(hookCommand, "", CaCertificateSecretLabel, false, true)
+		hookContext.Commands.JujuLog(commands.Info, "Received a certificate signing request from:", request.RelationID, "with common name:", request.CertificateSigningRequest.CommonName)
+		caCertificateSecret, err := hookContext.Commands.SecretGet("", CaCertificateSecretLabel, false, true)
 		if err != nil {
 			return fmt.Errorf("could not get CA certificate secret: %w", err)
 		}
@@ -86,25 +86,25 @@ func processOutstandingCertificateRequests(hookCommand *commands.HookCommand, lo
 			},
 			Revoked: false,
 		}
-		err = tls_certificates.SetRelationCertificate(hookCommand, request.RelationID, providerCertificatte)
+		err = tls_certificates.SetRelationCertificate(hookContext, request.RelationID, providerCertificatte)
 		if err != nil {
-			logger.Warning("Could not set relation certificate:", err.Error())
+			hookContext.Commands.JujuLog(commands.Warning, "Could not set relation certificate:", err.Error())
 			continue
 		}
-		logger.Info("Provided certificate to:", request.RelationID)
+		hookContext.Commands.JujuLog(commands.Info, "Provided certificate to:", request.RelationID)
 	}
 	return nil
 }
 
-func HandleDefaultHook(hookCommand *commands.HookCommand, logger *commands.Logger) error {
-	isLeader, err := commands.IsLeader(hookCommand)
+func HandleDefaultHook(hookContext *goops.HookContext) error {
+	isLeader, err := hookContext.Commands.IsLeader()
 	if err != nil {
 		return fmt.Errorf("could not check if unit is leader: %w", err)
 	}
 	if !isLeader {
 		return fmt.Errorf("unit is not leader")
 	}
-	valid, err := isConfigValid(hookCommand)
+	valid, err := isConfigValid(hookContext)
 	if err != nil {
 		return fmt.Errorf("could not check config: %w", err)
 	}
@@ -112,20 +112,20 @@ func HandleDefaultHook(hookCommand *commands.HookCommand, logger *commands.Logge
 		return fmt.Errorf("config is not valid")
 	}
 
-	err = commands.StatusSet(hookCommand, commands.StatusActive)
-	if err != nil {
-		logger.Error("Could not set status:", err.Error())
-		os.Exit(0)
-	}
-	logger.Info("Status set to active")
-
-	err = generateAndStoreRootCertificate(hookCommand, logger)
+	err = generateAndStoreRootCertificate(hookContext)
 	if err != nil {
 		return fmt.Errorf("could not generate CA certificate: %w", err)
 	}
-	err = processOutstandingCertificateRequests(hookCommand, logger)
+	err = processOutstandingCertificateRequests(hookContext)
 	if err != nil {
 		return fmt.Errorf("could not process outstanding certificate requests: %w", err)
 	}
+
+	err = hookContext.Commands.StatusSet(commands.StatusActive, "")
+	if err != nil {
+		hookContext.Commands.JujuLog(commands.Error, "Could not set status:", err.Error())
+		return fmt.Errorf("could not set status: %w", err)
+	}
+	hookContext.Commands.JujuLog(commands.Info, "Status set to active")
 	return nil
 }
