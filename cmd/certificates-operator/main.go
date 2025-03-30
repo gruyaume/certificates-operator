@@ -4,38 +4,36 @@ import (
 	"os"
 
 	"github.com/gruyaume/certificates-operator/internal/charm"
+	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
-	"github.com/gruyaume/goops/environment"
 )
 
 func main() {
-	hookCommand := &commands.HookCommand{}
-	execEnv := &environment.ExecutionEnvironment{}
-	logger := commands.NewLogger(hookCommand)
-	actionName := environment.JujuActionName(execEnv)
+	hookContext := goops.NewHookContext()
+	actionName := hookContext.Environment.JujuActionName()
 	if actionName != "" {
-		logger.Info("Action name:", actionName)
+		hookContext.Commands.JujuLog(commands.Info, "Action name: "+actionName)
 		switch actionName {
 		case "get-ca-certificate":
-			err := charm.HandleGetCACertificateAction(hookCommand)
+			err := charm.HandleGetCACertificateAction(hookContext)
 			if err != nil {
-				logger.Error("Error handling get-ca-certificate action:", err.Error())
+				hookContext.Commands.JujuLog(commands.Error, "Error handling get-ca-certificate action: "+err.Error())
 				os.Exit(0)
 			}
-			logger.Info("Handled get-ca-certificate action successfully")
+			hookContext.Commands.JujuLog(commands.Info, "Handled get-ca-certificate action successfully")
 			os.Exit(0)
 		default:
-			logger.Info("Action not recognized, exiting")
+			hookContext.Commands.JujuLog(commands.Error, "Action not recognized, exiting")
 			os.Exit(0)
 		}
 	}
 
-	hookName := environment.JujuHookName(execEnv)
+	hookName := hookContext.Environment.JujuHookName()
 	if hookName != "" {
-		logger.Info("Hook name:", hookName)
-		err := charm.HandleDefaultHook(hookCommand, logger)
+		hookContext.Commands.JujuLog(commands.Info, "Hook name: "+hookName)
+		err := charm.HandleDefaultHook(hookContext)
 		if err != nil {
-			logger.Error("Error handling default hook:", err.Error())
+			hookContext.Commands.JujuLog(commands.Error, "Error handling default hook: "+err.Error())
 			os.Exit(0)
 		}
 	}
