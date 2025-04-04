@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/gruyaume/goops"
+	"github.com/gruyaume/goops/commands"
 )
 
 type CertificateSigningRequestRequirerRelationData struct {
@@ -75,36 +76,59 @@ func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationN
 	if relationName == "" {
 		return nil, fmt.Errorf("relation name is empty")
 	}
-	relationIDs, err := hookContext.Commands.RelationIDs(relationName)
+
+	relationIDsOpts := &commands.RelationIDsOptions{
+		Name: relationName,
+	}
+
+	relationIDs, err := hookContext.Commands.RelationIDs(relationIDsOpts)
 	if err != nil {
 		return nil, fmt.Errorf("could not get relation IDs: %w", err)
 	}
+
 	requirerCertificateRequests := make([]RequirerCertificateRequest, 0)
+
 	for _, relationID := range relationIDs {
-		relationUnits, err := hookContext.Commands.RelationList(relationID)
+		relationListOpts := &commands.RelationListOptions{
+			ID: relationID,
+		}
+
+		relationUnits, err := hookContext.Commands.RelationList(relationListOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not list relation data: %w", err)
 		}
+
 		for _, unitID := range relationUnits {
-			relationData, err := hookContext.Commands.RelationGet(relationID, unitID, false)
+			relationGetOpts := &commands.RelationGetOptions{
+				ID:     relationID,
+				UnitID: unitID,
+			}
+
+			relationData, err := hookContext.Commands.RelationGet(relationGetOpts)
 			if err != nil {
 				return nil, fmt.Errorf("could not get relation data: %w", err)
 			}
+
 			csrJSON, ok := relationData["certificate_signing_requests"]
 			if !ok {
 				continue
 			}
+
 			var certificateSigningRequestsRelationData []CertificateSigningRequestRequirerRelationData
+
 			err = json.Unmarshal([]byte(csrJSON), &certificateSigningRequestsRelationData)
 			if err != nil {
 				return nil, fmt.Errorf("could not unmarshal certificate signing requests: %w", err)
 			}
+
 			for _, csrRelationData := range certificateSigningRequestsRelationData {
 				csrString := csrRelationData.CertificateSigningRequest
+
 				csr, err := loadCertificateSigningRequest(csrString)
 				if err != nil {
 					return nil, fmt.Errorf("could not parse certificate signing request: %w", err)
 				}
+
 				requirerCertificateRequest := RequirerCertificateRequest{
 					RelationID:                relationID,
 					CertificateSigningRequest: csr,
@@ -114,6 +138,7 @@ func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationN
 			}
 		}
 	}
+
 	return requirerCertificateRequests, nil
 }
 
@@ -129,17 +154,27 @@ func SetRelationCertificate(hookContext *goops.HookContext, relationID string, p
 	for _, cert := range providerCertificate.Chain {
 		appData[0].Chain = append(appData[0].Chain, cert.Raw)
 	}
+
 	appDataJSON, err := json.Marshal(appData)
 	if err != nil {
 		return fmt.Errorf("could not marshal app data: %w", err)
 	}
+
 	relationData := map[string]string{
 		"certificates": string(appDataJSON),
 	}
-	err = hookContext.Commands.RelationSet(relationID, true, relationData)
+
+	relationSetOpts := &commands.RelationSetOptions{
+		ID:   relationID,
+		App:  true,
+		Data: relationData,
+	}
+
+	err = hookContext.Commands.RelationSet(relationSetOpts)
 	if err != nil {
 		return fmt.Errorf("could not set relation data: %w", err)
 	}
+
 	return nil
 }
 
