@@ -166,7 +166,7 @@ func HandleDefaultHook(hookContext *goops.HookContext) error {
 		return fmt.Errorf("could not process outstanding certificate requests: %w", err)
 	}
 
-	statusSetOpt := &commands.StatusGetOptions{
+	statusSetOpt := &commands.StatusSetOptions{
 		Name:    commands.StatusActive,
 		Message: "Certificates are being generated",
 	}
