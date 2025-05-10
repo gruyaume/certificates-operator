@@ -1,44 +1,79 @@
 package main
 
 import (
-	"os"
+	"context"
 
 	"github.com/gruyaume/certificates-operator/internal/charm"
 	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
+	"github.com/gruyaume/notary-k8s-operator/integrations/tracing"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/trace"
+)
+
+const (
+	serviceName            = "certificates"
+	TracingIntegrationName = "tracing"
 )
 
 func main() {
-	hookContext := goops.NewHookContext()
-	actionName := hookContext.Environment.JujuActionName()
+	hc := goops.NewHookContext()
+	hook := hc.Environment.JujuHookName()
 
-	if actionName != "" {
-		hookContext.Commands.JujuLog(commands.Info, "Action name: "+actionName)
-
-		switch actionName {
-		case "get-ca-certificate":
-			err := charm.HandleGetCACertificateAction(hookContext)
-			if err != nil {
-				hookContext.Commands.JujuLog(commands.Error, "Error handling get-ca-certificate action: "+err.Error())
-				os.Exit(0)
-			}
-
-			hookContext.Commands.JujuLog(commands.Info, "Handled get-ca-certificate action successfully")
-			os.Exit(0)
-		default:
-			hookContext.Commands.JujuLog(commands.Error, "Action not recognized, exiting")
-			os.Exit(0)
-		}
+	if hook == "" {
+		return
 	}
 
-	hookName := hookContext.Environment.JujuHookName()
-	if hookName != "" {
-		hookContext.Commands.JujuLog(commands.Info, "Hook name: "+hookName)
+	run(hc, hook)
+}
 
-		err := charm.HandleDefaultHook(hookContext)
-		if err != nil {
-			hookContext.Commands.JujuLog(commands.Error, "Error handling default hook: "+err.Error())
-			os.Exit(0)
-		}
+func run(hc *goops.HookContext, hook string) {
+	ctx, tp := initTracing(hc)
+	defer shutdown(tp, ctx)
+
+	tracer := otel.Tracer(serviceName)
+	ctx, span := tracer.Start(ctx, hook)
+
+	defer span.End()
+
+	charm.HandleDefaultHook(ctx, hc)
+	charm.SetStatus(ctx, hc)
+
+	flush(tp, ctx)
+}
+
+func initTracing(hc *goops.HookContext) (context.Context, *trace.TracerProvider) {
+	ti := tracing.Integration{
+		HookContext:  hc,
+		RelationName: TracingIntegrationName,
+		ServiceName:  serviceName,
+	}
+	ti.PublishSupportedProtocols([]tracing.Protocol{tracing.GRPC})
+
+	ctx := context.Background()
+
+	tp, err := ti.InitTracer(ctx)
+	if err != nil {
+		hc.Commands.JujuLog(commands.Error, "could not initialize tracer:", err.Error())
+		return ctx, nil
+	}
+
+	return ctx, tp
+}
+
+func flush(tp *trace.TracerProvider, ctx context.Context) {
+	if tp != nil {
+		tp.ForceFlush(ctx)
+	}
+}
+
+func shutdown(tp *trace.TracerProvider, ctx context.Context) {
+	if tp == nil {
+		return
+	}
+
+	if err := tp.Shutdown(ctx); err != nil {
+		hc := goops.NewHookContext()
+		hc.Commands.JujuLog(commands.Error, "could not shutdown tracer:", err.Error())
 	}
 }

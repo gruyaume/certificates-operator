@@ -16,7 +16,17 @@ const (
 	CaCertificateValidityYears = 10
 )
 
-func GenerateRootCertificate(commonName string) (string, string, error) {
+type CaCertificateOpts struct {
+	CommonName          string
+	Organization        string
+	OrganizationalUnit  string
+	EmailAddress        string
+	CountryName         string
+	StateOrProvinceName string
+	LocalityName        string
+}
+
+func GenerateRootCertificate(opts *CaCertificateOpts) (string, string, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return "", "", fmt.Errorf("could not generate private key: %w", err)
@@ -24,7 +34,7 @@ func GenerateRootCertificate(commonName string) (string, string, error) {
 
 	csrTemplate := &x509.CertificateRequest{
 		Subject: pkix.Name{
-			CommonName: commonName,
+			CommonName: opts.CommonName,
 		},
 		DNSNames: []string{},
 	}
@@ -47,7 +57,12 @@ func GenerateRootCertificate(commonName string) (string, string, error) {
 	certTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
 		Subject: pkix.Name{
-			CommonName: commonName,
+			CommonName:         opts.CommonName,
+			Organization:       []string{opts.Organization},
+			OrganizationalUnit: []string{opts.OrganizationalUnit},
+			Country:            []string{opts.CountryName},
+			Province:           []string{opts.StateOrProvinceName},
+			Locality:           []string{opts.LocalityName},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(CaCertificateValidityYears, 0, 0),
