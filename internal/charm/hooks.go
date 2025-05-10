@@ -15,31 +15,13 @@ const (
 	TLSCertificatesIntegration = "certificates"
 )
 
-func isConfigValid(hookContext *goops.HookContext) (bool, error) {
-	configGetOpts := &commands.ConfigGetOptions{
-		Key: "ca-common-name",
-	}
-
-	caCommonNameConfig, err := hookContext.Commands.ConfigGetString(configGetOpts)
-	if err != nil {
-		return false, fmt.Errorf("could not get config: %w", err)
-	}
-
-	if caCommonNameConfig == "" {
-		return false, fmt.Errorf("ca-common-name config is empty")
-	}
-
-	return true, nil
-}
-
 func generateAndStoreRootCertificate(hookContext *goops.HookContext) error {
-	configGetOpts := &commands.ConfigGetOptions{
-		Key: "ca-common-name",
-	}
+	config := &ConfigOptions{}
 
-	caCommonName, err := hookContext.Commands.ConfigGetString(configGetOpts)
+	err := config.LoadFromJuju(hookContext)
 	if err != nil {
-		return fmt.Errorf("could not get config: %w", err)
+		hookContext.Commands.JujuLog(commands.Warning, "Couldn't load config options: %s", err.Error())
+		return fmt.Errorf("couldn't load config options: %w", err)
 	}
 
 	secretGetOpts := &commands.SecretGetOptions{
@@ -51,7 +33,15 @@ func generateAndStoreRootCertificate(hookContext *goops.HookContext) error {
 	if err != nil {
 		hookContext.Commands.JujuLog(commands.Info, "could not get secret:", err.Error())
 
-		caCertPEM, caKeyPEM, err := GenerateRootCertificate(caCommonName)
+		caCertPEM, caKeyPEM, err := GenerateRootCertificate(&CaCertificateOpts{
+			CommonName:          config.caCommonName,
+			Organization:        config.caOrganization,
+			OrganizationalUnit:  config.caOrganizationalUnit,
+			EmailAddress:        config.caEmailAddress,
+			CountryName:         config.caCountryName,
+			StateOrProvinceName: config.caStateOrProvinceName,
+			LocalityName:        config.caLocalityName,
+		})
 		if err != nil {
 			return fmt.Errorf("could not generate root certificate: %w", err)
 		}
@@ -154,14 +144,9 @@ func HandleDefaultHook(ctx context.Context, hookContext *goops.HookContext) {
 		return
 	}
 
-	valid, err := isConfigValid(hookContext)
+	err = validateConfigOptions(ctx, hookContext)
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Info, "Could not check config", err.Error())
-		return
-	}
-
-	if !valid {
-		hookContext.Commands.JujuLog(commands.Info, "Config is not valid")
+		hookContext.Commands.JujuLog(commands.Error, "Config validation failed:", err.Error())
 		return
 	}
 
@@ -198,4 +183,25 @@ func SetStatus(ctx context.Context, hookContext *goops.HookContext) {
 	}
 
 	hookContext.Commands.JujuLog(commands.Info, "Status set to active")
+}
+
+func validateConfigOptions(ctx context.Context, hookContext *goops.HookContext) error {
+	_, span := otel.Tracer("certificates").Start(ctx, "validate config")
+	defer span.End()
+
+	config := &ConfigOptions{}
+
+	err := config.LoadFromJuju(hookContext)
+	if err != nil {
+		hookContext.Commands.JujuLog(commands.Warning, "Couldn't load config options: %s", err.Error())
+		return fmt.Errorf("couldn't load config options: %w", err)
+	}
+
+	err = config.Validate()
+	if err != nil {
+		hookContext.Commands.JujuLog(commands.Warning, "Config is not valid: %s", err.Error())
+		return fmt.Errorf("config is not valid: %w", err)
+	}
+
+	return nil
 }
