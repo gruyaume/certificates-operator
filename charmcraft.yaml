@@ -36,6 +36,11 @@ provides:
   certificates:
     interface: tls-certificates
 
+requires:
+  tracing:
+    interface: tracing
+    limit: 1
+
 actions:
   get-ca-certificate:
     description: Outputs the CA cert

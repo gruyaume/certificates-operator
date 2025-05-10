@@ -1,11 +1,13 @@
 package charm
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gruyaume/certificates-operator/internal/integrations/tls_certificates"
 	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -137,47 +139,63 @@ func processOutstandingCertificateRequests(hookContext *goops.HookContext) error
 	return nil
 }
 
-func HandleDefaultHook(hookContext *goops.HookContext) error {
+func HandleDefaultHook(ctx context.Context, hookContext *goops.HookContext) {
+	_, span := otel.Tracer("certificates").Start(ctx, "Handle Hook")
+	defer span.End()
+
 	isLeader, err := hookContext.Commands.IsLeader()
 	if err != nil {
-		return fmt.Errorf("could not check if unit is leader: %w", err)
+		hookContext.Commands.JujuLog(commands.Error, "Could not check if unit is leader", err.Error())
+		return
 	}
 
 	if !isLeader {
-		return fmt.Errorf("unit is not leader")
+		hookContext.Commands.JujuLog(commands.Info, "Unit is not leader")
+		return
 	}
 
 	valid, err := isConfigValid(hookContext)
 	if err != nil {
-		return fmt.Errorf("could not check config: %w", err)
+		hookContext.Commands.JujuLog(commands.Info, "Could not check config", err.Error())
+		return
 	}
 
 	if !valid {
-		return fmt.Errorf("config is not valid")
+		hookContext.Commands.JujuLog(commands.Info, "Config is not valid")
+		return
 	}
 
 	err = generateAndStoreRootCertificate(hookContext)
 	if err != nil {
-		return fmt.Errorf("could not generate CA certificate: %w", err)
+		hookContext.Commands.JujuLog(commands.Error, "Could not generate and store root certificate:", err.Error())
+		return
 	}
 
 	err = processOutstandingCertificateRequests(hookContext)
 	if err != nil {
-		return fmt.Errorf("could not process outstanding certificate requests: %w", err)
+		hookContext.Commands.JujuLog(commands.Error, "Could not process outstanding certificate requests:", err.Error())
+		return
+	}
+}
+
+func SetStatus(ctx context.Context, hookContext *goops.HookContext) {
+	_, span := otel.Tracer("certificates").Start(ctx, "Set Status")
+	defer span.End()
+
+	status := commands.StatusActive
+
+	message := ""
+
+	statusSetOpts := &commands.StatusSetOptions{
+		Name:    status,
+		Message: message,
 	}
 
-	statusSetOpt := &commands.StatusSetOptions{
-		Name:    commands.StatusActive,
-		Message: "Certificates are being generated",
-	}
-
-	err = hookContext.Commands.StatusSet(statusSetOpt)
+	err := hookContext.Commands.StatusSet(statusSetOpts)
 	if err != nil {
 		hookContext.Commands.JujuLog(commands.Error, "Could not set status:", err.Error())
-		return fmt.Errorf("could not set status: %w", err)
+		return
 	}
 
 	hookContext.Commands.JujuLog(commands.Info, "Status set to active")
-
-	return nil
 }
