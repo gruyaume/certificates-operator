@@ -68,15 +68,6 @@ type Certificate struct {
 	LocalityName        string
 }
 
-type ProviderCertificate struct {
-	RelationID                string
-	Certificate               Certificate
-	CertificateSigningRequest CertificateSigningRequest
-	CA                        Certificate
-	Chain                     []Certificate
-	Revoked                   bool
-}
-
 func (p *IntegrationProvider) GetOutstandingCertificateRequests() ([]RequirerCertificateRequest, error) {
 	if p.RelationName == "" {
 		return nil, fmt.Errorf("relation name is empty")
@@ -147,18 +138,25 @@ func (p *IntegrationProvider) GetOutstandingCertificateRequests() ([]RequirerCer
 	return requirerCertificateRequests, nil
 }
 
-func (p *IntegrationProvider) SetRelationCertificate(relationID string, providerCertificate ProviderCertificate) error {
+type SetRelationCertificateOptions struct {
+	RelationID                string
+	CA                        string
+	Chain                     []string
+	CertificateSigningRequest string
+	Certificate               string
+}
+
+func (p *IntegrationProvider) SetRelationCertificate(opts *SetRelationCertificateOptions) error {
 	appData := []CertificateSigningRequestProviderAppRelationData{
 		{
-			CA:                        providerCertificate.CA.Raw,
+			CA:                        opts.CA,
 			Chain:                     []string{},
-			CertificateSigningRequest: providerCertificate.CertificateSigningRequest.Raw,
-			Certificate:               providerCertificate.Certificate.Raw,
+			CertificateSigningRequest: opts.CertificateSigningRequest,
+			Certificate:               opts.Certificate,
 		},
 	}
-	for _, cert := range providerCertificate.Chain {
-		appData[0].Chain = append(appData[0].Chain, cert.Raw)
-	}
+
+	appData[0].Chain = append(appData[0].Chain, opts.Chain...)
 
 	appDataJSON, err := json.Marshal(appData)
 	if err != nil {
@@ -170,7 +168,7 @@ func (p *IntegrationProvider) SetRelationCertificate(relationID string, provider
 	}
 
 	relationSetOpts := &commands.RelationSetOptions{
-		ID:   relationID,
+		ID:   opts.RelationID,
 		App:  true,
 		Data: relationData,
 	}

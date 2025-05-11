@@ -111,18 +111,13 @@ func processOutstandingCertificateRequests(hookContext *goops.HookContext) error
 			return fmt.Errorf("could not generate certificate: %w", err)
 		}
 
-		providerCertificatte := certificates.ProviderCertificate{
+		err = tlsProvider.SetRelationCertificate(&certificates.SetRelationCertificateOptions{
 			RelationID:                request.RelationID,
-			Certificate:               certificates.Certificate{Raw: certPEM},
-			CertificateSigningRequest: request.CertificateSigningRequest,
-			CA:                        certificates.Certificate{Raw: caCertPEM},
-			Chain: []certificates.Certificate{
-				{Raw: caCertPEM},
-			},
-			Revoked: false,
-		}
-
-		err = tlsProvider.SetRelationCertificate(request.RelationID, providerCertificatte)
+			Certificate:               certPEM,
+			CA:                        caCertPEM,
+			Chain:                     []string{caCertPEM},
+			CertificateSigningRequest: request.CertificateSigningRequest.Raw,
+		})
 		if err != nil {
 			hookContext.Commands.JujuLog(commands.Warning, "Could not set relation certificate:", err.Error())
 			continue
