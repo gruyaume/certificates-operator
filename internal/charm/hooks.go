@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gruyaume/certificates-operator/integrations/certificates"
+	"github.com/gruyaume/charm-libraries/certificates"
 	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
 	"go.opentelemetry.io/otel"
