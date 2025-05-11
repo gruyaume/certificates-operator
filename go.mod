@@ -3,8 +3,9 @@ module github.com/gruyaume/certificates-operator
 go 1.24.0
 
 require (
+	github.com/gruyaume/charm-libraries/certificates v0.0.0-20250511074203-b132869b900c
+	github.com/gruyaume/charm-libraries/tracing v0.0.0-20250511074203-b132869b900c
 	github.com/gruyaume/goops v0.0.11
-	github.com/gruyaume/notary-k8s-operator v0.0.0-20250509061553-b51160dacfae
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/sdk v1.35.0
 )
