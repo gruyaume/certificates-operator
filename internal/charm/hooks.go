@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gruyaume/certificates-operator/internal/integrations/tls_certificates"
+	"github.com/gruyaume/certificates-operator/integrations/certificates"
 	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
 	"go.opentelemetry.io/otel"
@@ -73,7 +73,12 @@ func generateAndStoreRootCertificate(hookContext *goops.HookContext) error {
 }
 
 func processOutstandingCertificateRequests(hookContext *goops.HookContext) error {
-	outstandingCertificateRequests, err := tls_certificates.GetOutstandingCertificateRequests(hookContext, TLSCertificatesIntegration)
+	tlsProvider := &certificates.IntegrationProvider{
+		RelationName: TLSCertificatesIntegration,
+		HookContext:  hookContext,
+	}
+
+	outstandingCertificateRequests, err := tlsProvider.GetOutstandingCertificateRequests()
 	if err != nil {
 		return fmt.Errorf("could not get outstanding certificate requests: %w", err)
 	}
@@ -106,18 +111,18 @@ func processOutstandingCertificateRequests(hookContext *goops.HookContext) error
 			return fmt.Errorf("could not generate certificate: %w", err)
 		}
 
-		providerCertificatte := tls_certificates.ProviderCertificate{
+		providerCertificatte := certificates.ProviderCertificate{
 			RelationID:                request.RelationID,
-			Certificate:               tls_certificates.Certificate{Raw: certPEM},
+			Certificate:               certificates.Certificate{Raw: certPEM},
 			CertificateSigningRequest: request.CertificateSigningRequest,
-			CA:                        tls_certificates.Certificate{Raw: caCertPEM},
-			Chain: []tls_certificates.Certificate{
+			CA:                        certificates.Certificate{Raw: caCertPEM},
+			Chain: []certificates.Certificate{
 				{Raw: caCertPEM},
 			},
 			Revoked: false,
 		}
 
-		err = tls_certificates.SetRelationCertificate(hookContext, request.RelationID, providerCertificatte)
+		err = tlsProvider.SetRelationCertificate(request.RelationID, providerCertificatte)
 		if err != nil {
 			hookContext.Commands.JujuLog(commands.Warning, "Could not set relation certificate:", err.Error())
 			continue
@@ -171,18 +176,22 @@ func SetStatus(ctx context.Context, hookContext *goops.HookContext) {
 
 	message := ""
 
+	err := validateConfigOptions(ctx, hookContext)
+	if err != nil {
+		status = commands.StatusBlocked
+		message = fmt.Sprintf("Invalid config: %s", err.Error())
+	}
+
 	statusSetOpts := &commands.StatusSetOptions{
 		Name:    status,
 		Message: message,
 	}
 
-	err := hookContext.Commands.StatusSet(statusSetOpts)
+	err = hookContext.Commands.StatusSet(statusSetOpts)
 	if err != nil {
 		hookContext.Commands.JujuLog(commands.Error, "Could not set status:", err.Error())
 		return
 	}
-
-	hookContext.Commands.JujuLog(commands.Info, "Status set to active")
 }
 
 func validateConfigOptions(ctx context.Context, hookContext *goops.HookContext) error {

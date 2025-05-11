@@ -1,4 +1,4 @@
-package tls_certificates
+package certificates
 
 import (
 	"crypto/x509"
@@ -9,6 +9,11 @@ import (
 	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/commands"
 )
+
+type IntegrationProvider struct {
+	HookContext  *goops.HookContext
+	RelationName string
+}
 
 type CertificateSigningRequestRequirerRelationData struct {
 	CertificateSigningRequest string `json:"certificate_signing_request"`
@@ -72,16 +77,16 @@ type ProviderCertificate struct {
 	Revoked                   bool
 }
 
-func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationName string) ([]RequirerCertificateRequest, error) {
-	if relationName == "" {
+func (p *IntegrationProvider) GetOutstandingCertificateRequests() ([]RequirerCertificateRequest, error) {
+	if p.RelationName == "" {
 		return nil, fmt.Errorf("relation name is empty")
 	}
 
 	relationIDsOpts := &commands.RelationIDsOptions{
-		Name: relationName,
+		Name: p.RelationName,
 	}
 
-	relationIDs, err := hookContext.Commands.RelationIDs(relationIDsOpts)
+	relationIDs, err := p.HookContext.Commands.RelationIDs(relationIDsOpts)
 	if err != nil {
 		return nil, fmt.Errorf("could not get relation IDs: %w", err)
 	}
@@ -93,7 +98,7 @@ func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationN
 			ID: relationID,
 		}
 
-		relationUnits, err := hookContext.Commands.RelationList(relationListOpts)
+		relationUnits, err := p.HookContext.Commands.RelationList(relationListOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not list relation data: %w", err)
 		}
@@ -104,7 +109,7 @@ func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationN
 				UnitID: unitID,
 			}
 
-			relationData, err := hookContext.Commands.RelationGet(relationGetOpts)
+			relationData, err := p.HookContext.Commands.RelationGet(relationGetOpts)
 			if err != nil {
 				return nil, fmt.Errorf("could not get relation data: %w", err)
 			}
@@ -142,7 +147,7 @@ func GetOutstandingCertificateRequests(hookContext *goops.HookContext, relationN
 	return requirerCertificateRequests, nil
 }
 
-func SetRelationCertificate(hookContext *goops.HookContext, relationID string, providerCertificate ProviderCertificate) error {
+func (p *IntegrationProvider) SetRelationCertificate(relationID string, providerCertificate ProviderCertificate) error {
 	appData := []CertificateSigningRequestProviderAppRelationData{
 		{
 			CA:                        providerCertificate.CA.Raw,
@@ -170,7 +175,7 @@ func SetRelationCertificate(hookContext *goops.HookContext, relationID string, p
 		Data: relationData,
 	}
 
-	err = hookContext.Commands.RelationSet(relationSetOpts)
+	err = p.HookContext.Commands.RelationSet(relationSetOpts)
 	if err != nil {
 		return fmt.Errorf("could not set relation data: %w", err)
 	}
