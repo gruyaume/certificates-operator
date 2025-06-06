@@ -1,12 +1,10 @@
 package charm
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/gruyaume/charm-libraries/certificates"
 	"github.com/gruyaume/goops"
-	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -19,7 +17,6 @@ func generateAndStoreRootCertificate() error {
 
 	err := config.LoadFromJuju()
 	if err != nil {
-		goops.LogWarningf("Couldn't load config options: %s", err.Error())
 		return fmt.Errorf("couldn't load config options: %w", err)
 	}
 
@@ -116,76 +113,48 @@ func processOutstandingCertificateRequests() error {
 	return nil
 }
 
-func HandleDefaultHook(ctx context.Context) {
-	_, span := otel.Tracer("certificates").Start(ctx, "Handle Hook")
-	defer span.End()
-
+func Configure() error {
 	isLeader, err := goops.IsLeader()
 	if err != nil {
-		goops.LogErrorf("Could not check if unit is leader: %s", err.Error())
-		return
+		return fmt.Errorf("could not check if unit is leader: %w", err)
 	}
 
 	if !isLeader {
-		goops.LogInfof("Unit is not leader, skipping hook execution")
-		return
+		_ = goops.SetUnitStatus(goops.StatusBlocked, "Unit is not leader")
+		return nil
 	}
 
-	err = validateConfigOptions(ctx)
+	err = validateConfigOptions()
 	if err != nil {
-		goops.LogErrorf("Config validation failed: %s", err.Error())
-		return
+		_ = goops.SetUnitStatus(goops.StatusBlocked, fmt.Sprintf("Invalid config: %s", err.Error()))
+		return nil
 	}
 
 	err = generateAndStoreRootCertificate()
 	if err != nil {
-		goops.LogErrorf("Could not generate and store root certificate: %s", err.Error())
-		return
+		return fmt.Errorf("could not generate and store root certificate: %w", err)
 	}
 
 	err = processOutstandingCertificateRequests()
 	if err != nil {
-		goops.LogErrorf("Could not process outstanding certificate requests: %s", err.Error())
-		return
+		return fmt.Errorf("could not process outstanding certificate requests: %w", err)
 	}
+
+	_ = goops.SetUnitStatus(goops.StatusActive, "Certificates operator is running")
+
+	return nil
 }
 
-func SetStatus(ctx context.Context) {
-	_, span := otel.Tracer("certificates").Start(ctx, "Set Status")
-	defer span.End()
-
-	status := goops.StatusActive
-
-	message := ""
-
-	err := validateConfigOptions(ctx)
-	if err != nil {
-		status = goops.StatusBlocked
-		message = fmt.Sprintf("Invalid config: %s", err.Error())
-	}
-
-	err = goops.SetUnitStatus(status, message)
-	if err != nil {
-		goops.LogErrorf("Could not set status: %s", err.Error())
-		return
-	}
-}
-
-func validateConfigOptions(ctx context.Context) error {
-	_, span := otel.Tracer("certificates").Start(ctx, "validate config")
-	defer span.End()
-
+func validateConfigOptions() error {
 	config := &ConfigOptions{}
 
 	err := config.LoadFromJuju()
 	if err != nil {
-		goops.LogWarningf("Couldn't load config options: %s", err.Error())
 		return fmt.Errorf("couldn't load config options: %w", err)
 	}
 
 	err = config.Validate()
 	if err != nil {
-		goops.LogWarningf("Config is not valid: %s", err.Error())
 		return fmt.Errorf("config is not valid: %w", err)
 	}
 
