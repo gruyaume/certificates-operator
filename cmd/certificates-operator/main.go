@@ -1,75 +1,35 @@
 package main
 
 import (
-	"context"
-
 	"github.com/gruyaume/certificates-operator/internal/charm"
-	"github.com/gruyaume/charm-libraries/tracing"
 	"github.com/gruyaume/goops"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/sdk/trace"
-)
-
-const (
-	serviceName            = "certificates"
-	TracingIntegrationName = "tracing"
 )
 
 func main() {
 	env := goops.ReadEnv()
 
-	if env.HookName == "" {
-		return
+	switch env.HookName {
+	case "":
+		goops.LogInfof("No hook specified")
+	default:
+		err := charm.Configure()
+		if err != nil {
+			goops.LogErrorf("Failed to configure charm: %s", err.Error())
+		}
+
+		goops.LogInfof("Charm configured successfully")
 	}
 
-	run(env.HookName)
-}
+	switch env.ActionName {
+	case "get-ca-certificate":
+		err := charm.HandleGetCACertificateAction()
+		if err != nil {
+			goops.LogErrorf("Failed to handle get-ca-certificate action: %s", err.Error())
+		}
 
-func run(hook string) {
-	ctx, tp := initTracing()
-	defer shutdown(tp, ctx)
-
-	tracer := otel.Tracer(serviceName)
-	ctx, span := tracer.Start(ctx, hook)
-
-	defer span.End()
-
-	charm.HandleDefaultHook(ctx)
-	charm.SetStatus(ctx)
-
-	flush(tp, ctx)
-}
-
-func initTracing() (context.Context, *trace.TracerProvider) {
-	ti := tracing.Integration{
-		RelationName: TracingIntegrationName,
-		ServiceName:  serviceName,
-	}
-	ti.PublishSupportedProtocols([]tracing.Protocol{tracing.GRPC})
-
-	ctx := context.Background()
-
-	tp, err := ti.InitTracer(ctx)
-	if err != nil {
-		goops.LogErrorf("could not initialize tracer: %v", err)
-		return ctx, nil
-	}
-
-	return ctx, tp
-}
-
-func flush(tp *trace.TracerProvider, ctx context.Context) {
-	if tp != nil {
-		tp.ForceFlush(ctx)
-	}
-}
-
-func shutdown(tp *trace.TracerProvider, ctx context.Context) {
-	if tp == nil {
-		return
-	}
-
-	if err := tp.Shutdown(ctx); err != nil {
-		goops.LogErrorf("could not shutdown tracer: %v", err)
+	case "":
+		goops.LogInfof("No action specified")
+	default:
+		goops.LogInfof("No action handler for action: %s", env.ActionName)
 	}
 }
