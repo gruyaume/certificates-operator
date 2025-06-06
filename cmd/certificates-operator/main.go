@@ -6,7 +6,6 @@ import (
 	"github.com/gruyaume/certificates-operator/internal/charm"
 	"github.com/gruyaume/charm-libraries/tracing"
 	"github.com/gruyaume/goops"
-	"github.com/gruyaume/goops/commands"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
@@ -17,18 +16,17 @@ const (
 )
 
 func main() {
-	hc := goops.NewHookContext()
-	hook := hc.Environment.JujuHookName()
+	env := goops.ReadEnv()
 
-	if hook == "" {
+	if env.HookName == "" {
 		return
 	}
 
-	run(hc, hook)
+	run(env.HookName)
 }
 
-func run(hc *goops.HookContext, hook string) {
-	ctx, tp := initTracing(hc)
+func run(hook string) {
+	ctx, tp := initTracing()
 	defer shutdown(tp, ctx)
 
 	tracer := otel.Tracer(serviceName)
@@ -36,15 +34,14 @@ func run(hc *goops.HookContext, hook string) {
 
 	defer span.End()
 
-	charm.HandleDefaultHook(ctx, hc)
-	charm.SetStatus(ctx, hc)
+	charm.HandleDefaultHook(ctx)
+	charm.SetStatus(ctx)
 
 	flush(tp, ctx)
 }
 
-func initTracing(hc *goops.HookContext) (context.Context, *trace.TracerProvider) {
+func initTracing() (context.Context, *trace.TracerProvider) {
 	ti := tracing.Integration{
-		HookContext:  hc,
 		RelationName: TracingIntegrationName,
 		ServiceName:  serviceName,
 	}
@@ -54,7 +51,7 @@ func initTracing(hc *goops.HookContext) (context.Context, *trace.TracerProvider)
 
 	tp, err := ti.InitTracer(ctx)
 	if err != nil {
-		hc.Commands.JujuLog(commands.Error, "could not initialize tracer:", err.Error())
+		goops.LogErrorf("could not initialize tracer: %v", err)
 		return ctx, nil
 	}
 
@@ -73,7 +70,6 @@ func shutdown(tp *trace.TracerProvider, ctx context.Context) {
 	}
 
 	if err := tp.Shutdown(ctx); err != nil {
-		hc := goops.NewHookContext()
-		hc.Commands.JujuLog(commands.Error, "could not shutdown tracer:", err.Error())
+		goops.LogErrorf("could not shutdown tracer: %v", err)
 	}
 }
