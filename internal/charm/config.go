@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/gruyaume/goops"
-	"github.com/gruyaume/goops/commands"
 )
 
 type ConfigOptions struct {
@@ -17,20 +16,20 @@ type ConfigOptions struct {
 	caLocalityName        string
 }
 
-func (c *ConfigOptions) LoadFromJuju(hookContext *goops.HookContext) error {
-	caCommonName, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-common-name"})
+func (c *ConfigOptions) LoadFromJuju() error {
+	caCommonName, _ := goops.GetConfigString("ca-common-name")
 
-	caOrganization, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-organization"})
+	caOrganization, _ := goops.GetConfigString("ca-organization")
 
-	caOrganizationalUnit, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-organizational-unit"})
+	caOrganizationalUnit, _ := goops.GetConfigString("ca-organizational-unit")
 
-	caEmailAddress, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-email-address"})
+	caEmailAddress, _ := goops.GetConfigString("ca-email-address")
 
-	caCountryName, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-country-name"})
+	caCountryName, _ := goops.GetConfigString("ca-country-name")
 
-	caStateOrProvinceName, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-state-or-province-name"})
+	caStateOrProvinceName, _ := goops.GetConfigString("ca-state-or-province-name")
 
-	caLocalityName, _ := hookContext.Commands.ConfigGetString(&commands.ConfigGetOptions{Key: "ca-locality-name"})
+	caLocalityName, _ := goops.GetConfigString("ca-locality-name")
 
 	c.caCommonName = caCommonName
 	c.caOrganization = caOrganization

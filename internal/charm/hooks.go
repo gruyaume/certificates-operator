@@ -6,7 +6,6 @@ import (
 
 	"github.com/gruyaume/charm-libraries/certificates"
 	"github.com/gruyaume/goops"
-	"github.com/gruyaume/goops/commands"
 	"go.opentelemetry.io/otel"
 )
 
@@ -15,23 +14,18 @@ const (
 	TLSCertificatesIntegration = "certificates"
 )
 
-func generateAndStoreRootCertificate(hookContext *goops.HookContext) error {
+func generateAndStoreRootCertificate() error {
 	config := &ConfigOptions{}
 
-	err := config.LoadFromJuju(hookContext)
+	err := config.LoadFromJuju()
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Warning, "Couldn't load config options: %s", err.Error())
+		goops.LogWarningf("Couldn't load config options: %s", err.Error())
 		return fmt.Errorf("couldn't load config options: %w", err)
 	}
 
-	secretGetOpts := &commands.SecretGetOptions{
-		Label:   CaCertificateSecretLabel,
-		Refresh: true,
-	}
-
-	_, err = hookContext.Commands.SecretGet(secretGetOpts)
+	_, err = goops.GetSecretByLabel(CaCertificateSecretLabel, false, true)
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Info, "could not get secret:", err.Error())
+		goops.LogInfof("could not get secret: %s", err.Error())
 
 		caCertPEM, caKeyPEM, err := GenerateRootCertificate(&CaCertificateOpts{
 			CommonName:          config.caCommonName,
@@ -46,36 +40,34 @@ func generateAndStoreRootCertificate(hookContext *goops.HookContext) error {
 			return fmt.Errorf("could not generate root certificate: %w", err)
 		}
 
-		hookContext.Commands.JujuLog(commands.Info, "Generated new root certificate")
+		goops.LogInfof("Generated new root certificate")
 
 		secretContent := map[string]string{
 			"private-key":    caKeyPEM,
 			"ca-certificate": caCertPEM,
 		}
-		secretAddOpts := &commands.SecretAddOptions{
+
+		_, err = goops.AddSecret(&goops.AddSecretOptions{
 			Label:   CaCertificateSecretLabel,
 			Content: secretContent,
-		}
-
-		_, err = hookContext.Commands.SecretAdd(secretAddOpts)
+		})
 		if err != nil {
 			return fmt.Errorf("could not add secret: %w", err)
 		}
 
-		hookContext.Commands.JujuLog(commands.Info, "Created new secret")
+		goops.LogInfof("Created new secret")
 
 		return nil
 	}
 
-	hookContext.Commands.JujuLog(commands.Info, "Secret found")
+	goops.LogInfof("Secret found")
 
 	return nil
 }
 
-func processOutstandingCertificateRequests(hookContext *goops.HookContext) error {
+func processOutstandingCertificateRequests() error {
 	tlsProvider := &certificates.IntegrationProvider{
 		RelationName: TLSCertificatesIntegration,
-		HookContext:  hookContext,
 	}
 
 	outstandingCertificateRequests, err := tlsProvider.GetOutstandingCertificateRequests()
@@ -84,14 +76,9 @@ func processOutstandingCertificateRequests(hookContext *goops.HookContext) error
 	}
 
 	for _, request := range outstandingCertificateRequests {
-		hookContext.Commands.JujuLog(commands.Info, "Received a certificate signing request from:", request.RelationID, "with common name:", request.CertificateSigningRequest.CommonName)
+		goops.LogInfof("Received a certificate signing request from: %s with common name: %s", request.RelationID, request.CertificateSigningRequest.CommonName)
 
-		secretGetOpts := &commands.SecretGetOptions{
-			Label:   CaCertificateSecretLabel,
-			Refresh: true,
-		}
-
-		caCertificateSecret, err := hookContext.Commands.SecretGet(secretGetOpts)
+		caCertificateSecret, err := goops.GetSecretByLabel(CaCertificateSecretLabel, false, true)
 		if err != nil {
 			return fmt.Errorf("could not get CA certificate secret: %w", err)
 		}
@@ -119,91 +106,86 @@ func processOutstandingCertificateRequests(hookContext *goops.HookContext) error
 			CertificateSigningRequest: request.CertificateSigningRequest.Raw,
 		})
 		if err != nil {
-			hookContext.Commands.JujuLog(commands.Warning, "Could not set relation certificate:", err.Error())
+			goops.LogWarningf("Could not set relation certificate for %s: %s", request.RelationID, err.Error())
 			continue
 		}
 
-		hookContext.Commands.JujuLog(commands.Info, "Provided certificate to:", request.RelationID)
+		goops.LogInfof("Provided certificate to: %s", request.RelationID)
 	}
 
 	return nil
 }
 
-func HandleDefaultHook(ctx context.Context, hookContext *goops.HookContext) {
+func HandleDefaultHook(ctx context.Context) {
 	_, span := otel.Tracer("certificates").Start(ctx, "Handle Hook")
 	defer span.End()
 
-	isLeader, err := hookContext.Commands.IsLeader()
+	isLeader, err := goops.IsLeader()
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Error, "Could not check if unit is leader", err.Error())
+		goops.LogErrorf("Could not check if unit is leader: %s", err.Error())
 		return
 	}
 
 	if !isLeader {
-		hookContext.Commands.JujuLog(commands.Info, "Unit is not leader")
+		goops.LogInfof("Unit is not leader, skipping hook execution")
 		return
 	}
 
-	err = validateConfigOptions(ctx, hookContext)
+	err = validateConfigOptions(ctx)
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Error, "Config validation failed:", err.Error())
+		goops.LogErrorf("Config validation failed: %s", err.Error())
 		return
 	}
 
-	err = generateAndStoreRootCertificate(hookContext)
+	err = generateAndStoreRootCertificate()
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Error, "Could not generate and store root certificate:", err.Error())
+		goops.LogErrorf("Could not generate and store root certificate: %s", err.Error())
 		return
 	}
 
-	err = processOutstandingCertificateRequests(hookContext)
+	err = processOutstandingCertificateRequests()
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Error, "Could not process outstanding certificate requests:", err.Error())
+		goops.LogErrorf("Could not process outstanding certificate requests: %s", err.Error())
 		return
 	}
 }
 
-func SetStatus(ctx context.Context, hookContext *goops.HookContext) {
+func SetStatus(ctx context.Context) {
 	_, span := otel.Tracer("certificates").Start(ctx, "Set Status")
 	defer span.End()
 
-	status := commands.StatusActive
+	status := goops.StatusActive
 
 	message := ""
 
-	err := validateConfigOptions(ctx, hookContext)
+	err := validateConfigOptions(ctx)
 	if err != nil {
-		status = commands.StatusBlocked
+		status = goops.StatusBlocked
 		message = fmt.Sprintf("Invalid config: %s", err.Error())
 	}
 
-	statusSetOpts := &commands.StatusSetOptions{
-		Name:    status,
-		Message: message,
-	}
-
-	err = hookContext.Commands.StatusSet(statusSetOpts)
+	err = goops.SetUnitStatus(status, message)
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Error, "Could not set status:", err.Error())
+		goops.LogErrorf("Could not set status: %s", err.Error())
 		return
 	}
 }
 
-func validateConfigOptions(ctx context.Context, hookContext *goops.HookContext) error {
+func validateConfigOptions(ctx context.Context) error {
 	_, span := otel.Tracer("certificates").Start(ctx, "validate config")
 	defer span.End()
 
 	config := &ConfigOptions{}
 
-	err := config.LoadFromJuju(hookContext)
+	err := config.LoadFromJuju()
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Warning, "Couldn't load config options: %s", err.Error())
+		goops.LogWarningf("Couldn't load config options: %s", err.Error())
 		return fmt.Errorf("couldn't load config options: %w", err)
 	}
 
 	err = config.Validate()
 	if err != nil {
-		hookContext.Commands.JujuLog(commands.Warning, "Config is not valid: %s", err.Error())
+		goops.LogWarningf("Config is not valid: %s", err.Error())
 		return fmt.Errorf("config is not valid: %w", err)
 	}
 
