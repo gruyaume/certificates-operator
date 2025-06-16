@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/gruyaume/certificates-operator/internal/charm"
 	"github.com/gruyaume/goops"
 )
@@ -15,6 +17,7 @@ func main() {
 		err := charm.Configure()
 		if err != nil {
 			goops.LogErrorf("Failed to configure charm: %s", err.Error())
+			os.Exit(1)
 		}
 
 		goops.LogInfof("Charm configured successfully")
@@ -25,6 +28,7 @@ func main() {
 		err := charm.HandleGetCACertificateAction()
 		if err != nil {
 			goops.LogErrorf("Failed to handle get-ca-certificate action: %s", err.Error())
+			os.Exit(1)
 		}
 
 	case "":
