@@ -1,8 +1,12 @@
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/gruyaume/charm-libraries/certificates v0.0.0-20250609200116-16a5979ef15e h1:Ngu7eZrHsU1xo3Dcgd3nBZGmLkU3SMPXxxaB5Ey89UU=
 github.com/gruyaume/charm-libraries/certificates v0.0.0-20250609200116-16a5979ef15e/go.mod h1:KeLQEK/F01aR/9dcs4sCZNLGSHNxKc9thsdJsFK1b5k=
+github.com/gruyaume/charm-libraries/certificates v0.0.0-20250616201711-3306286fd3a6 h1:yr6JCQbZrShrIIbzO3AbEVqq2B2/3kT9u7FKMMkN5sQ=
+github.com/gruyaume/charm-libraries/certificates v0.0.0-20250616201711-3306286fd3a6/go.mod h1:Dg6fYc9sgm3se9PuhiE4wjIMhKPWsXfjoV29KbuQKno=
 github.com/gruyaume/goops v0.0.18 h1:um2uqTS7jou1lftn/txz/VxpElyZY6rTVoU/vMlKcac=
 github.com/gruyaume/goops v0.0.18/go.mod h1:91Pt2hUN92i9M74tYVJ1ASmCXV+5UtAnMGKlQmz/21g=
+github.com/gruyaume/goops v0.0.19 h1:aCAd5XSztgTo9+RglHXZY8El3DortleL9cJDfjVGpNc=
+github.com/gruyaume/goops v0.0.19/go.mod h1:91Pt2hUN92i9M74tYVJ1ASmCXV+5UtAnMGKlQmz/21g=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

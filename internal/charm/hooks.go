@@ -13,11 +13,11 @@ const (
 )
 
 func generateAndStoreRootCertificate() error {
-	config := &ConfigOptions{}
+	config := ConfigOptions{}
 
-	err := config.LoadFromJuju()
+	err := goops.GetConfig(&config)
 	if err != nil {
-		return fmt.Errorf("couldn't load config options: %w", err)
+		return fmt.Errorf("could not get config options: %w", err)
 	}
 
 	_, err = goops.GetSecretByLabel(CaCertificateSecretLabel, false, true)
@@ -25,19 +25,19 @@ func generateAndStoreRootCertificate() error {
 		goops.LogInfof("could not get secret: %s", err.Error())
 
 		caCertPEM, caKeyPEM, err := GenerateRootCertificate(&CaCertificateOpts{
-			CommonName:          config.caCommonName,
-			Organization:        config.caOrganization,
-			OrganizationalUnit:  config.caOrganizationalUnit,
-			EmailAddress:        config.caEmailAddress,
-			CountryName:         config.caCountryName,
-			StateOrProvinceName: config.caStateOrProvinceName,
-			LocalityName:        config.caLocalityName,
+			CommonName:          config.CACommonName,
+			Organization:        config.CAOrganization,
+			OrganizationalUnit:  config.CAOrganizationalUnit,
+			EmailAddress:        config.CAEmailAddress,
+			CountryName:         config.CACountryName,
+			StateOrProvinceName: config.CAStateOrProvinceName,
+			LocalityName:        config.CALocalityName,
 		})
 		if err != nil {
 			return fmt.Errorf("could not generate root certificate: %w", err)
 		}
 
-		goops.LogInfof("Generated new root certificate")
+		goops.LogInfof("Generated new root certificate with common name: %s", config.CACommonName)
 
 		secretContent := map[string]string{
 			"private-key":    caKeyPEM,
@@ -146,11 +146,11 @@ func Configure() error {
 }
 
 func validateConfigOptions() error {
-	config := &ConfigOptions{}
+	config := ConfigOptions{}
 
-	err := config.LoadFromJuju()
+	err := goops.GetConfig(&config)
 	if err != nil {
-		return fmt.Errorf("couldn't load config options: %w", err)
+		return fmt.Errorf("could not get config options: %w", err)
 	}
 
 	err = config.Validate()
