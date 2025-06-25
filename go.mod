@@ -3,8 +3,8 @@ module github.com/gruyaume/certificates-operator
 go 1.24.0
 
 require (
-	github.com/gruyaume/charm-libraries/certificates v0.0.0-20250619014909-2e6aa47e85d1
-	github.com/gruyaume/goops v0.0.21
+	github.com/gruyaume/charm-libraries/certificates v0.0.0-20250625161320-3ff038b3bbfb
+	github.com/gruyaume/goops v0.0.22
 )
 
 require (
