@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/gruyaume/certificates-operator/internal/charm"
-	"github.com/gruyaume/goops"
 	"github.com/gruyaume/goops/goopstest"
 )
 
@@ -13,7 +12,7 @@ func TestGivenNotLeaderWhenConfigureThenBlockedStatus(t *testing.T) {
 		Charm: charm.Configure,
 	}
 
-	stateIn := &goopstest.State{
+	stateIn := goopstest.State{
 		Leader: false,
 	}
 
@@ -22,8 +21,12 @@ func TestGivenNotLeaderWhenConfigureThenBlockedStatus(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if stateOut.UnitStatus != string(goops.StatusBlocked) {
-		t.Errorf("expected unit status %s, got %s", goops.StatusBlocked, stateOut.UnitStatus)
+	expectedStatus := goopstest.Status{
+		Name:    goopstest.StatusBlocked,
+		Message: "Unit is not leader",
+	}
+	if stateOut.UnitStatus != expectedStatus {
+		t.Errorf("expected unit status %s, got %s", expectedStatus.Name, stateOut.UnitStatus)
 	}
 }
 
@@ -32,9 +35,9 @@ func TestGivenInvalidConfigWhenConfigureThenBlockedStatus(t *testing.T) {
 		Charm: charm.Configure,
 	}
 
-	stateIn := &goopstest.State{
+	stateIn := goopstest.State{
 		Leader: true,
-		Config: map[string]string{
+		Config: map[string]any{
 			"ca-common-name": "",
 		},
 	}
@@ -44,8 +47,12 @@ func TestGivenInvalidConfigWhenConfigureThenBlockedStatus(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if stateOut.UnitStatus != string(goops.StatusBlocked) {
-		t.Errorf("expected unit status %s, got %s", goops.StatusBlocked, stateOut.UnitStatus)
+	expectedStatus := goopstest.Status{
+		Name:    goopstest.StatusBlocked,
+		Message: "Invalid config: config is not valid: ca-common-name config is empty",
+	}
+	if stateOut.UnitStatus != expectedStatus {
+		t.Errorf("expected unit status %s, got %s", expectedStatus.Name, stateOut.UnitStatus)
 	}
 }
 
@@ -54,9 +61,9 @@ func TestGivenGoodConfigWhenConfigureThenActiveStatus(t *testing.T) {
 		Charm: charm.Configure,
 	}
 
-	stateIn := &goopstest.State{
+	stateIn := goopstest.State{
 		Leader: true,
-		Config: map[string]string{
+		Config: map[string]any{
 			"ca-common-name": "pizza.com",
 		},
 	}
@@ -66,8 +73,12 @@ func TestGivenGoodConfigWhenConfigureThenActiveStatus(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if stateOut.UnitStatus != string(goops.StatusActive) {
-		t.Errorf("expected unit status %s, got %s", goops.StatusActive, stateOut.UnitStatus)
+	expectedStatus := goopstest.Status{
+		Name:    goopstest.StatusActive,
+		Message: "Certificates operator is running",
+	}
+	if stateOut.UnitStatus != expectedStatus {
+		t.Errorf("expected unit status %s, got %s", expectedStatus.Name, stateOut.UnitStatus)
 	}
 }
 
@@ -76,9 +87,9 @@ func TestGivenGoodConfigWhenConfigureThenPrivateKeySecretCreated(t *testing.T) {
 		Charm: charm.Configure,
 	}
 
-	stateIn := &goopstest.State{
+	stateIn := goopstest.State{
 		Leader: true,
-		Config: map[string]string{
+		Config: map[string]any{
 			"ca-common-name": "pizza.com",
 		},
 	}
