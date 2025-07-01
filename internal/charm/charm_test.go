@@ -8,17 +8,18 @@ import (
 )
 
 func TestGivenNotLeaderWhenConfigureThenBlockedStatus(t *testing.T) {
-	ctx := goopstest.Context{
-		Charm: charm.Configure,
-	}
+	ctx := goopstest.NewContext(
+		charm.Configure,
+	)
 
 	stateIn := goopstest.State{
 		Leader: false,
 	}
 
-	stateOut, err := ctx.Run("start", stateIn)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	stateOut := ctx.Run("start", stateIn)
+
+	if ctx.CharmErr != nil {
+		t.Fatalf("unexpected error: %v", ctx.CharmErr)
 	}
 
 	expectedStatus := goopstest.Status{
@@ -31,9 +32,9 @@ func TestGivenNotLeaderWhenConfigureThenBlockedStatus(t *testing.T) {
 }
 
 func TestGivenInvalidConfigWhenConfigureThenBlockedStatus(t *testing.T) {
-	ctx := goopstest.Context{
-		Charm: charm.Configure,
-	}
+	ctx := goopstest.NewContext(
+		charm.Configure,
+	)
 
 	stateIn := goopstest.State{
 		Leader: true,
@@ -42,9 +43,10 @@ func TestGivenInvalidConfigWhenConfigureThenBlockedStatus(t *testing.T) {
 		},
 	}
 
-	stateOut, err := ctx.Run("start", stateIn)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	stateOut := ctx.Run("start", stateIn)
+
+	if ctx.CharmErr != nil {
+		t.Fatalf("unexpected error: %v", ctx.CharmErr)
 	}
 
 	expectedStatus := goopstest.Status{
@@ -57,9 +59,9 @@ func TestGivenInvalidConfigWhenConfigureThenBlockedStatus(t *testing.T) {
 }
 
 func TestGivenGoodConfigWhenConfigureThenActiveStatus(t *testing.T) {
-	ctx := goopstest.Context{
-		Charm: charm.Configure,
-	}
+	ctx := goopstest.NewContext(
+		charm.Configure,
+	)
 
 	stateIn := goopstest.State{
 		Leader: true,
@@ -68,9 +70,10 @@ func TestGivenGoodConfigWhenConfigureThenActiveStatus(t *testing.T) {
 		},
 	}
 
-	stateOut, err := ctx.Run("start", stateIn)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	stateOut := ctx.Run("start", stateIn)
+
+	if ctx.CharmErr != nil {
+		t.Fatalf("unexpected error: %v", ctx.CharmErr)
 	}
 
 	expectedStatus := goopstest.Status{
@@ -83,9 +86,9 @@ func TestGivenGoodConfigWhenConfigureThenActiveStatus(t *testing.T) {
 }
 
 func TestGivenGoodConfigWhenConfigureThenPrivateKeySecretCreated(t *testing.T) {
-	ctx := goopstest.Context{
-		Charm: charm.Configure,
-	}
+	ctx := goopstest.NewContext(
+		charm.Configure,
+	)
 
 	stateIn := goopstest.State{
 		Leader: true,
@@ -94,9 +97,10 @@ func TestGivenGoodConfigWhenConfigureThenPrivateKeySecretCreated(t *testing.T) {
 		},
 	}
 
-	stateOut, err := ctx.Run("start", stateIn)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	stateOut := ctx.Run("start", stateIn)
+
+	if ctx.CharmErr != nil {
+		t.Fatalf("unexpected error: %v", ctx.CharmErr)
 	}
 
 	if len(stateOut.Secrets) != 1 {
